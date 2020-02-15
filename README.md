@@ -32,5 +32,5 @@ pip install -r requirements.txt
 Run the program:
 
 ```sh
-python robo-advisor.py
+python app/robo-advisor.py
 ```
