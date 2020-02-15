@@ -14,6 +14,12 @@ cd ~/Desktop/robo-advisor
 
 ## Setup
 
+Before using or developing this application, take a moment to [obtain an AlphaVantage API Key](https://www.alphavantage.co/support/#api-key) (e.g. "abc123").
+
+After obtaining an API Key, create a new file in this repository called ".env", and update the contents of the ".env" file to specify your real API Key:
+
+    ALPHAVANTAGE_API_KEY="abc123"
+
 Create and activate a new Anaconda virtual environment from the command-line:
 
 ```sh
