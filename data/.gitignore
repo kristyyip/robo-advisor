@@ -1,4 +1,9 @@
-# .gitignore
+# data/.gitignore
 
-# ignore secret environemnt variable values
-.env
+# h/t: https://stackoverflow.com/a/5581995/670433
+
+# ignore all files in this directory:
+*
+
+# except this gitignore file:
+!.gitignore
