@@ -2,12 +2,15 @@ import csv
 import json
 import os
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 import requests
 
 load_dotenv()
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 # utility function to convert float or integer to usd-formatted string (for printing)
 # ... adapted from: https://github.com/s2t2/shopping-cart-screencast/blob/30c2a2873a796b8766
@@ -24,7 +27,7 @@ length = len(symbol)
 request_url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
 
 if symbol.isdigit() or (length < 1 or length > 5): # source: https://pynative.com/python-check-user-input-is-number-or-string/
-    print("Oh, expecting a properly-formed stock symbol like 'MSFT'. Please try again.")
+    print("Oh, expecting a properly-formed stock symbol like 'MSFT'. The program will now exit, so please try again.")
     exit()
 else:
     response = requests.get(request_url)
@@ -34,7 +37,7 @@ else:
 
     # handle response errors:
     if "Error Message" in response.text:
-        print("Oops, couldn't find that symbol. Please try again.")
+        print("Oops, couldn't find that symbol. The program will now exit, so please try again.")
         exit()
 
     parsed_response = json.loads(response.text)
@@ -67,8 +70,8 @@ else:
 
     csv_file_path = os.path.join(os.path.dirname(__file__), "..", "data", "prices.csv")
 
-    csv_headers = ["timestamp", "open", "high", "low", "close", "volume"]
-    with open(csv_file_path, "w") as csv_file:
+    csv_headers = ["timestamp", "opening", "high", "low", "closing", "volume"]
+    with open(csv_file_path, "w", newline='') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=csv_headers)
         writer.writeheader()
 
@@ -77,10 +80,10 @@ else:
             daily_prices = tsd[date]
             writer.writerow({
                 "timestamp": date,
-                "open": daily_prices["1. open"],
+                "opening": daily_prices["1. open"],
                 "high": daily_prices["2. high"],
                 "low": daily_prices["3. low"],
-                "close": daily_prices["4. close"],
+                "closing": daily_prices["4. close"],
                 "volume": daily_prices["5. volume"]
             })
 
@@ -113,3 +116,32 @@ else:
     print("-------------------------")
     print("HAPPY INVESTING!")
     print("-------------------------")
+
+    # creating four line graphs showing the opening, high, low, and closing stock prices over time
+    ## source: https://stackoverflow.com/questions/56179109/plot-stock-data-from-csv-file-not-showing-date-correctly
+    stock_prices = pd.read_csv('data/prices.csv')
+
+    ## Convert the date to datetime
+    stock_prices['timestamp'] = pd.to_datetime(stock_prices['timestamp'], format = '%Y-%m-%d')
+    ## Assign this as index
+    stock_prices.set_index(['timestamp'], inplace=True)
+    ## plot the price -- making subplots source: https://pythonprogramming.net/matplotlib-tutorial-part-5-subplots-multiple-plots-figure/
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+
+    ax1.plot(stock_prices['opening'], 'r')
+    ax2.plot(stock_prices['high'], 'b')
+    ax3.plot(stock_prices['low'], 'g')
+    ax4.plot(stock_prices['closing'], 'k')
+
+    ## setting subplot labels
+    ax1.set_title(f'Opening Stock Prices Over Time for {symbol}')
+    ax2.set_title(f'High Stock Prices Over Time for {symbol}')
+    ax3.set_title(f'Low Stock Prices Over Time for {symbol}')
+    ax4.set_title(f'Closing Stock Prices Over Time for {symbol}')
+
+    ax3.set_xlabel('Day')
+    ax4.set_xlabel('Day')
+    ax1.set_ylabel('Price')
+    ax3.set_ylabel('Price')
+
+    plt.show() 
