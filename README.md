@@ -17,7 +17,7 @@ cd ~/Desktop/robo-advisor
 ### AlphaVantage API Key
 Before using or developing this application, take a moment to [obtain an AlphaVantage API Key](https://www.alphavantage.co/support/#api-key) (e.g. "abc123").
 
-After obtaining an API Key, create a new file in this repository called ".env", and update the contents of the ".env" file to specify your real API Key in an enviornment variable:
+After obtaining an API Key, create a new file in this repository called ".env" (hidden by the .gitignore file), and update the contents of the ".env" file to specify your real API Key in an enviornment variable:
 
     ALPHAVANTAGE_API_KEY="abc123"
 
@@ -46,7 +46,6 @@ Finally, set an environment variable to specify the recipient's phone number (in
     
     RECIPIENT_SMS="+11234567890"
 
-
 ## Virtual Environment Setup
 Create and activate a new Anaconda virtual environment from the command-line:
 
@@ -60,6 +59,9 @@ From inside the virtual environment, install the package dependencies specified 
 ```sh
 pip install -r app/requirements.txt
 ```
+
+## Additional Setup
+Within the sub-directory "data", add a prices.csv file. This should be hidden by the .gitignore file in that sub-directory.
 
 ## Usage
 
