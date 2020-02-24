@@ -7,29 +7,34 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests
 
-load_dotenv()
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+from twilio.rest import Client
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+load_dotenv()
+
 
 # utility function to convert float or integer to usd-formatted string (for printing)
 # ... adapted from: https://github.com/s2t2/shopping-cart-screencast/blob/30c2a2873a796b8766
 def to_usd(my_price):
     return "${0:,.2f}".format(my_price)
 
+
 #
 # INFO INPUTS
 #
 
 api_key = os.environ.get("ALPHAVANTAGE_API_KEY")
-symbol = input("Please choose a valid stock symbol to evaluate: ") #accept user input
-length = len(symbol)
+symbol = input("Please choose a valid stock symbol to evaluate: ") # accept user input
+length = len(symbol) # to retrieve the length of the user's input
 request_url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
 
-if symbol.isdigit() or (length < 1 or length > 5): # source: https://pynative.com/python-check-user-input-is-number-or-string/
+# validating user's input by checking to see if it is all letters or 1-5 characters
+if symbol.isdigit() or (length < 1 or length > 5): # source for letter/number check: https://pynative.com/python-check-user-input-is-number-or-string/
     print("Oh, expecting a properly-formed stock symbol like 'MSFT'. The program will now exit, so please try again.")
     exit()
 else:
@@ -43,6 +48,7 @@ else:
         print("Oops, couldn't find that symbol. The program will now exit, so please try again.")
         exit()
 
+    # retrieve data from json file
     parsed_response = json.loads(response.text)
 
     last_refreshed = parsed_response["Meta Data"]["3. Last Refreshed"]
@@ -65,20 +71,20 @@ else:
     recent_high = max(high_prices)
     recent_low = min(low_prices)
 
-    # sending alerts via email 
+    # sending alerts 
+    ## via email 
     current_datetime = datetime.now() # source: tecadmin.net/get-current-date-time-python/
+    second_latest_close = parsed_response["Time Series (Daily)"][dates[1]]["4. close"]
+    second_latest_day = list(tsd.keys())[1]
+    timestamp = current_datetime.strftime("%B %d, %Y at %I:%M %p")
 
     while True:
-        email_choice = input("Would you like to receive an email alerting you about price movements? (Yes or No): ")
+        email_choice = input("Would you like to receive an email alerting you about price movements? (Yes or No): ") # accept user's input
 
-        second_latest_close = parsed_response["Time Series (Daily)"][dates[1]]["4. close"]
-        second_latest_day = list(tsd.keys())[1]
-        timestamp = current_datetime.strftime("%B %d, %Y at %I:%M %p")
-
-        if email_choice.lower() == "yes":
+        if email_choice.lower() == "yes": # email alerts if user's input is "yes"
             print("Great! You'll receive an email if there was a price movement within the past day of the latest day's stock.")
 
-            if (float(latest_close) < .95*(float(second_latest_close))):
+            if (float(latest_close) < .95*(float(second_latest_close))): # send email if latest closing price decreased by more than 5% within the past day of the latest day's stock
                 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "OOPS, please set env var called 'SENDGRID_API_KEY'")
                 MY_ADDRESS = os.environ.get("MY_EMAIL_ADDRESS", "OOPS, please set env var called 'MY_EMAIL_ADDRESS'")
 
@@ -111,7 +117,7 @@ else:
                     print("OOPS", e.message)
                 
                 break
-            elif (float(latest_close) > 1.05*(float(second_latest_close))):
+            elif (float(latest_close) > 1.05*(float(second_latest_close))):  # send email if latest closing price increased by more than 5% within the past day of the latest day's stock
                 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "OOPS, please set env var called 'SENDGRID_API_KEY'")
                 MY_ADDRESS = os.environ.get("MY_EMAIL_ADDRESS", "OOPS, please set env var called 'MY_EMAIL_ADDRESS'")
 
@@ -144,13 +150,77 @@ else:
                     print("OOPS", e.message)
                 
                 break
-            else:
+            else: # don't do anything if closing price within 5% above or below within the past day of the latest day's stock
                 break
-        elif email_choice.lower() == "no":
+        elif email_choice.lower() == "no": # no email alerts if user says "no"
+            print("Okay, you will not receive any email alerts for price movements.")
             break
-        else:
+        else: # invalid input if user puts something other than "yes" or "no"
             print("Sorry, that isn't a valid choice. Please choose 'Yes' or 'No'.")
 
+    ## via SMS
+    while True:
+        SMS_choice = input("Would you like to receive a text alerting you about price movements? (Yes or No): ") # accept user's input
+
+        if SMS_choice.lower() == "yes": # SMS alerts if user's input is "yes"
+            print("Great! You'll receive a text if there was a price movement within the past day of the latest day's stock.")
+            
+            TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "OOPS, please specify env var called 'TWILIO_ACCOUNT_SID'")
+            TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "OOPS, please specify env var called 'TWILIO_AUTH_TOKEN'")
+            SENDER_SMS  = os.environ.get("SENDER_SMS", "OOPS, please specify env var called 'SENDER_SMS'")
+            RECIPIENT_SMS  = os.environ.get("RECIPIENT_SMS", "OOPS, please specify env var called 'RECIPIENT_SMS'")
+
+            # AUTHENTICATE
+
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+            if (float(latest_close) < .95*(float(second_latest_close))): # send SMS if latest closing price decreased by more than 5% within the past day of the latest day's stock
+                # COMPILE REQUEST PARAMETERS (PREPARE THE MESSAGE)
+                content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE DECREASE alert for {symbol} from Robo Advisor. The price has decreased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, decreasing to {latest_close} for {last_refreshed}. Thank you for using Robo Advisor."
+
+                # ISSUE REQUEST (SEND SMS)
+                message = client.messages.create(to=RECIPIENT_SMS, from_=SENDER_SMS, body=content)
+
+                # PARSE RESPONSE
+                print("----------------------")
+                print("SMS")
+                print("----------------------")
+                print("RESPONSE: ", type(message))
+                print("FROM:", message.from_)
+                print("TO:", message.to)
+                print("BODY:", message.body)
+                print("PROPERTIES:")
+                print(message._properties)
+
+                break
+            elif (float(latest_close) > 1.05*(float(second_latest_close))): # send SMS if latest closing price increased by more than 5% within the past day of the latest day's stock
+                # COMPILE REQUEST PARAMETERS (PREPARE THE MESSAGE)
+                content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE INCREASE alert for {symbol} from Robo Advisor. The price has increased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, increasing to {latest_close} for {last_refreshed}. Thank you for using Robo Advisor."
+
+                # ISSUE REQUEST (SEND SMS)
+                message = client.messages.create(to=RECIPIENT_SMS, from_=SENDER_SMS, body=content)
+
+                # PARSE RESPONSE
+                print("----------------------")
+                print("SMS")
+                print("----------------------")
+                print("RESPONSE: ", type(message))
+                print("FROM:", message.from_)
+                print("TO:", message.to)
+                print("BODY:", message.body)
+                print("PROPERTIES:")
+                print(message._properties)
+
+                break
+            else: # don't do anything if closing price within 5% above or below within the past day of the latest day's stock
+                break
+        elif SMS_choice.lower() == "no": # no SMS alerts if user says "no"
+            print("Okay, you will not receive any texts for price movements.")
+            break
+        else: # invalid input if user puts something other than "yes" or "no"
+            print("Sorry, that isn't a valid choice. Please choose 'Yes' or 'No'.")
+
+        
     #
     # INFO OUTPUTS
     #
@@ -176,12 +246,12 @@ else:
                 "volume": daily_prices["5. volume"]
             })
 
+    #print outputs
     print("-------------------------")
-    print("SELECTED SYMBOL: " + symbol)
+    print(f"SELECTED SYMBOL: {symbol}")
     print("-------------------------")
     print("REQUESTING STOCK MARKET DATA...")
 
-    ## print current date and time
     print("REQUEST AT: " + current_datetime.strftime("%Y-%m-%d %I:%M %p"))
     print("-------------------------")
     print(f"LATEST DAY: {last_refreshed}")
@@ -233,4 +303,4 @@ else:
     ax1.set_ylabel('Price')
     ax3.set_ylabel('Price')
 
-    plt.show() 
+    plt.show() # generate subplots

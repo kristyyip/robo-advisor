@@ -1,3 +1,4 @@
 requests
 python-dotenv
-sendgrid==6.05
+sendgrid==6.0.5
+twilio
