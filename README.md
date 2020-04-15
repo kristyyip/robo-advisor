@@ -26,11 +26,11 @@ Additionally, take a moment to [create an API Key](https://app.sendgrid.com/sett
 
 After obtaining an API Key, update the contents of the ".env" file to specify your real API Key in an environment variable:
 
-    SENDGRID_API_KEY="abc123"
+    SENDGRID_API="abc123"
 
 You will also need to update the contents of the ".env" file to specify your email address that is associated with your SendGrid account in an enviornment variable:
     
-    MY_EMAIL_ADDRESS="abc123@gmail.com"
+    MY_EMAIL="abc123@gmail.com"
 
 ### Twilio / SMS Capabilities
 Lastly, take a moment to [create a new project](https://www.twilio.com/console/projects/create) with "Programmable SMS" capabilities on Twilio. You may need to sign up for an account if you haven't done so already. From the console, view that project's Account SID and Auth Token. Update the contents of the ".env" file to specify these values as environment variables:
@@ -70,3 +70,16 @@ Run the program:
 ```sh
 python app/robo-advisor.py
 ```
+
+## Testing
+
+Install the `pytest` package, perhaps within a virtual environment:
+
+```sh
+pip install pytest
+```
+
+Run tests:
+
+```py
+pytest
