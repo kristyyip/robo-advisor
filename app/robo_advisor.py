@@ -15,10 +15,22 @@ from twilio.rest import Client
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# utility function to convert float or integer to usd-formatted string (for printing)
-# ... adapted from: https://github.com/s2t2/shopping-cart-screencast/blob/30c2a2873a796b8766
 def to_usd(my_price):
+    """
+    Converts a numeric value to usd-formatted string, for printing and display purposes.
+    
+    Source: https://github.com/prof-rossetti/intro-to-python/blog/master/notes/python/datatypes/numbers.
+    
+    Param: my_price (int or float) like 4000.444444
+    
+    Example: to_usd(4000.444444)
+    
+    Returns: $4,000.44
+    """
     return "${0:,.2f}".format(my_price)
+
+def write_to_csv(rows, csv_filepath):
+    return True
 
 if __name__ == "__main__":
     
