@@ -1,6 +1,3 @@
 # .gitignore
 # ignore secret environemnt variable values
 .env
-# ignore files created by pytest
-__pycache__
-.pytest_cache
