@@ -41,7 +41,7 @@ if __name__ == "__main__":
     #
 
     api_key = os.environ.get("ALPHAVANTAGE_API_KEY")
-    symbol = input("Please choose a valid stock symbol to evaluate: ") # accept user input
+    symbol = input("Please choose a valid stock symbol to evaluate (i.e. MSFT): ") # accept user input
     length = len(symbol) # to retrieve the length of the user's input
     request_url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
 

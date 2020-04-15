@@ -57,7 +57,7 @@ conda activate stocks-env
 From inside the virtual environment, install the package dependencies specified in the "requirements.txt" file that is included in this repository:
 
 ```sh
-pip install -r app/requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Additional Setup
