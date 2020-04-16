@@ -18,6 +18,13 @@ import pandas as pd
 load_dotenv()
 
 API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API", "OOPS, please set env var called 'SENDGRID_API'")
+MY_ADDRESS = os.environ.get("MY_EMAIL", "OOPS, please set env var called 'MY_EMAIL'")
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "OOPS, please specify env var called 'TWILIO_ACCOUNT_SID'")
+TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "OOPS, please specify env var called 'TWILIO_AUTH_TOKEN'")
+SENDER_SMS  = os.environ.get("SENDER_SMS", "OOPS, please specify env var called 'SENDER_SMS'")
+RECIPIENT_SMS  = os.environ.get("RECIPIENT_SMS", "OOPS, please specify env var called 'RECIPIENT_SMS'")
+
 
 def get_response(symbol):
     """
@@ -46,13 +53,7 @@ def transform_response(parsed_response):
 
     Example: transform_response(parsed_response)
 
-    Returns: rows
-        # the following is an example if parsed_response contained dictionaries of the following information
-        [
-            {"timestamp": "2019-06-08", "open": "101.0924", "high": "101.9500", "low": "100.5400", "close": "101.6300", "volume": "22165128"},
-            {"timestamp": "2019-06-07", "open": "102.6500", "high": "102.6900", "low": "100.3800", "close": "100.8800", "volume": "28232197"},
-            {"timestamp": "2019-06-06", "open": "102.4800", "high": "102.6000", "low": "101.9000", "close": "102.4900", "volume": "21122917"},
-        ]
+    Returns: rows # a list of dictionaries from parsed_response, transformed
     """
     tsd = parsed_response["Time Series (Daily)"]
 
@@ -69,6 +70,84 @@ def transform_response(parsed_response):
         rows.append(row)
 
     return rows
+
+def email(symbol, movement, timestamp, second_latest_day, second_latest_close, latest_close, last_refreshed):
+    """
+    Sends email alert with message
+
+    Param: symbol (str) like "MSFT", movement (str) should be either "INCREASE" or "DECREASE", timestamp (str) indicating a written date,
+    second_latest_day (str) indicating a date in YYYY/MM/DD format, second_latest_close (float) like 13.00, latest_close (float) like 5.12, 
+    and last_refreshed (str) indicating a date in YYYY/MM/DD format
+
+    Example: sms("MSFT", "DECREASE", timestamp, second_latest_day, second_latest_close, latest_close, last_refreshed)
+
+    Returns: html_content (body of email)
+    """
+    
+    client = SendGridAPIClient(SENDGRID_API_KEY) #> <class 'sendgrid.sendgrid.SendGridAPIClient>
+    print("CLIENT:", type(client))
+
+    subject = f"PRICE MOVEMENT ALERT FOR {symbol}!"
+
+    # body of the email
+    html_content = f"""
+        <h3>PRICE {movement} FOR {symbol}!</h3>
+        <p>Date: {timestamp}</p>
+        <p>The price has {movement} by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, changing to {latest_close} for {last_refreshed}.
+        <h3>Thank you for using Robo Advisor.</h3>
+    """
+
+    print("HTML:", html_content)
+
+    message = Mail(from_email=MY_ADDRESS, to_emails=MY_ADDRESS, subject=subject, html_content=html_content)
+
+    try:
+        response = client.send(message)
+
+        print("RESPONSE:", type(response)) #> <class 'python_http_client.client.Response'>
+        print(response.status_code) #> 202 indicates SUCCESS
+        print(response.body)
+        print(response.headers)
+
+    except Exception as e:
+        print("OOPS", e.message)
+    
+    return html_content
+
+def sms(movement, symbol, second_latest_day, second_latest_close, latest_close, last_refreshed):
+    """
+    Sends SMS alert with message
+
+    Param: movement (str) should be either "INCREASE" or "DECREASE", symbol (str) like "MSFT", second_latest_day (str) indicating a date in YYYY/MM/DD format,
+    second_latest_close (float) like 13.00, latest_close (float) like 5.12, and last_refreshed (str) indicating a date in YYYY/MM/DD format
+
+    Example: sms("INCREASE", MSFT, second_latest_day, second_latest_close, latest_close, last_refreshed)
+
+    Returns: content (contents of SMS)
+    """
+
+    # AUTHENTICATE
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+    # COMPILE REQUEST PARAMETERS (PREPARE THE MESSAGE)
+    content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE {movement} alert for {symbol} from Robo Advisor. The price has {movement}D by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, changing to {latest_close} for {last_refreshed}. Thank you for using Robo Advisor."
+
+    # ISSUE REQUEST (SEND SMS)
+    message = client.messages.create(to=RECIPIENT_SMS, from_=SENDER_SMS, body=content)
+
+    # PARSE RESPONSE
+    print("----------------------")
+    print("SMS")
+    print("----------------------")
+    print("RESPONSE: ", type(message))
+    print("FROM:", message.from_)
+    print("TO:", message.to)
+    print("BODY:", message.body)
+    print("PROPERTIES:")
+    print(message._properties)
+
+    return content
+
 
 def write_to_csv(rows, csv_filepath):
     """
@@ -155,70 +234,12 @@ if __name__ == "__main__":
                 print("Great! You'll receive an email if there was a price movement within the past day of the latest day's stock.")
 
                 if (float(latest_close) < .95*(float(second_latest_close))): # send email if latest closing price decreased by more than 5% within the past day of the latest day's stock
-                    SENDGRID_API_KEY = os.environ.get("SENDGRID_API", "OOPS, please set env var called 'SENDGRID_API'")
-                    MY_ADDRESS = os.environ.get("MY_EMAIL", "OOPS, please set env var called 'MY_EMAIL'")
+                    email(symbol, "DECREASE", timestamp, second_latest_day, second_latest_close, latest_close, last_refreshed)
 
-                    client = SendGridAPIClient(SENDGRID_API_KEY) #> <class 'sendgrid.sendgrid.SendGridAPIClient>
-                    print("CLIENT:", type(client))
-
-                    subject = f"PRICE MOVEMENT ALERT FOR {symbol}!"
-
-                    # body of the email
-                    html_content = f"""
-                        <h3>PRICE DECREASE FOR {symbol}!</h3>
-                        <p>Date: {timestamp}</p>
-                        <p>The price has decreased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, decreasing to {latest_close} for {last_refreshed}.
-                        <h3>Thank you for using Robo Advisor.</h3>
-                    """
-
-                    print("HTML:", html_content)
-
-                    message = Mail(from_email=MY_ADDRESS, to_emails=MY_ADDRESS, subject=subject, html_content=html_content)
-
-                    try:
-                        response = client.send(message)
-
-                        print("RESPONSE:", type(response)) #> <class 'python_http_client.client.Response'>
-                        print(response.status_code) #> 202 indicates SUCCESS
-                        print(response.body)
-                        print(response.headers)
-
-                    except Exception as e:
-                        print("OOPS", e.message)
-                    
                     break
                 elif (float(latest_close) > 1.05*(float(second_latest_close))):  # send email if latest closing price increased by more than 5% within the past day of the latest day's stock
-                    SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "OOPS, please set env var called 'SENDGRID_API_KEY'")
-                    MY_ADDRESS = os.environ.get("MY_EMAIL_ADDRESS", "OOPS, please set env var called 'MY_EMAIL_ADDRESS'")
+                    email(symbol, "INCREASE", timestamp, second_latest_day, second_latest_close, latest_close, last_refreshed)
 
-                    client = SendGridAPIClient(SENDGRID_API_KEY) #> <class 'sendgrid.sendgrid.SendGridAPIClient>
-                    print("CLIENT:", type(client))
-
-                    subject = f"PRICE MOVEMENT ALERT FOR {symbol}!"
-
-                    # body of the email
-                    html_content = f"""
-                        <h3>PRICE INCREASE FOR {symbol}!</h3>
-                        <p>Date: {timestamp}</p>
-                        <p>The price has increased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, increasing to {latest_close} for {last_refreshed}.
-                        <h3>Thank you for using Robo Advisor.</h3>
-                    """
-
-                    print("HTML:", html_content)
-
-                    message = Mail(from_email=MY_ADDRESS, to_emails=MY_ADDRESS, subject=subject, html_content=html_content)
-
-                    try:
-                        response = client.send(message)
-
-                        print("RESPONSE:", type(response)) #> <class 'python_http_client.client.Response'>
-                        print(response.status_code) #> 202 indicates SUCCESS
-                        print(response.body)
-                        print(response.headers)
-
-                    except Exception as e:
-                        print("OOPS", e.message)
-                    
                     break
                 else: # don't do anything if closing price within 5% above or below within the past day of the latest day's stock
                     break
@@ -234,52 +255,14 @@ if __name__ == "__main__":
 
             if SMS_choice.lower() == "yes": # SMS alerts if user's input is "yes"
                 print("Great! You'll receive a text if there was a price movement within the past day of the latest day's stock.")
-                
-                TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "OOPS, please specify env var called 'TWILIO_ACCOUNT_SID'")
-                TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "OOPS, please specify env var called 'TWILIO_AUTH_TOKEN'")
-                SENDER_SMS  = os.environ.get("SENDER_SMS", "OOPS, please specify env var called 'SENDER_SMS'")
-                RECIPIENT_SMS  = os.environ.get("RECIPIENT_SMS", "OOPS, please specify env var called 'RECIPIENT_SMS'")
-
-                # AUTHENTICATE
-
-                client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
                 if (float(latest_close) < .95*(float(second_latest_close))): # send SMS if latest closing price decreased by more than 5% within the past day of the latest day's stock
-                    # COMPILE REQUEST PARAMETERS (PREPARE THE MESSAGE)
-                    content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE DECREASE alert for {symbol} from Robo Advisor. The price has decreased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, decreasing to {latest_close} for {last_refreshed}. Thank you for using Robo Advisor."
 
-                    # ISSUE REQUEST (SEND SMS)
-                    message = client.messages.create(to=RECIPIENT_SMS, from_=SENDER_SMS, body=content)
-
-                    # PARSE RESPONSE
-                    print("----------------------")
-                    print("SMS")
-                    print("----------------------")
-                    print("RESPONSE: ", type(message))
-                    print("FROM:", message.from_)
-                    print("TO:", message.to)
-                    print("BODY:", message.body)
-                    print("PROPERTIES:")
-                    print(message._properties)
+                    sms("DECREASE", symbol, second_latest_day, second_latest_close, latest_close, last_refreshed)
 
                     break
                 elif (float(latest_close) > 1.05*(float(second_latest_close))): # send SMS if latest closing price increased by more than 5% within the past day of the latest day's stock
-                    # COMPILE REQUEST PARAMETERS (PREPARE THE MESSAGE)
-                    content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE INCREASE alert for {symbol} from Robo Advisor. The price has increased by more than 5% within the past day of the latest day's stock. The closing price for {second_latest_day} was {second_latest_close}, increasing to {latest_close} for {last_refreshed}. Thank you for using Robo Advisor."
-
-                    # ISSUE REQUEST (SEND SMS)
-                    message = client.messages.create(to=RECIPIENT_SMS, from_=SENDER_SMS, body=content)
-
-                    # PARSE RESPONSE
-                    print("----------------------")
-                    print("SMS")
-                    print("----------------------")
-                    print("RESPONSE: ", type(message))
-                    print("FROM:", message.from_)
-                    print("TO:", message.to)
-                    print("BODY:", message.body)
-                    print("PROPERTIES:")
-                    print(message._properties)
+                    sms("INCREASE", symbol, second_latest_day, second_latest_close, latest_close, last_refreshed)
 
                     break
                 else: # don't do anything if closing price within 5% above or below within the past day of the latest day's stock

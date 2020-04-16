@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from app.robo_advisor import get_response, transform_response, write_to_csv, to_usd
+from app.robo_advisor import get_response, transform_response, email, sms, write_to_csv, to_usd
 
 
 
@@ -59,6 +59,37 @@ def test_transform_response():
     ]
 
     assert transform_response(parsed_response) == transformed_response
+
+def test_email():
+    symbol = "MSFT"
+    movement = "DECREASE"
+    timestamp = "April 15, 2020 at 11:00 PM"
+    second_latest_day = "2020-04-14"
+    second_latest_close = 20.23
+    latest_close = 12.12
+    last_refreshed = "2020-04-15"
+
+    example_html_content = f"""
+        <h3>PRICE DECREASE FOR MSFT!</h3>
+        <p>Date: April 15, 2020 at 11:00 PM</p>
+        <p>The price has DECREASE by more than 5% within the past day of the latest day's stock. The closing price for 2020-04-14 was 20.23, changing to 12.12 for 2020-04-15.
+        <h3>Thank you for using Robo Advisor.</h3>
+    """
+
+    assert email(symbol, movement, timestamp, second_latest_day, second_latest_close, latest_close, last_refreshed) == example_html_content
+
+def test_sms():
+    movement = "DECREASE"
+    symbol = "MSFT"
+    second_latest_day = "2020-04-14"
+    second_latest_close = 20.23
+    latest_close = 12.12
+    last_refreshed = "2020-04-15"
+
+    example_content = f"PRICE MOVEMENT ALERT: Hello, this is a PRICE DECREASE alert for MSFT from Robo Advisor. The price has DECREASED by more than 5% within the past day of the latest day's stock. The closing price for 2020-04-14 was 20.23, changing to 12.12 for 2020-04-15. Thank you for using Robo Advisor."
+
+    assert sms(movement, symbol, second_latest_day, second_latest_close, latest_close, last_refreshed) == example_content
+
 
 def test_write_to_csv():
     # SETUP
