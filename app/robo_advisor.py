@@ -30,6 +30,14 @@ def to_usd(my_price):
     return "${0:,.2f}".format(my_price)
 
 def write_to_csv(rows, csv_filepath):
+    csv_headers = ["timestamp", "open", "high", "low", "close", "volume"]
+
+    with open(csv_filepath, "w") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=csv_headers)
+        writer.writeheader() # uses fieldnames set above
+        for row in rows:
+            writer.writerow(row)
+
     return True
 
 if __name__ == "__main__":
@@ -241,22 +249,7 @@ if __name__ == "__main__":
         ## creating a csv file of the stock prices
         csv_file_path = os.path.join(os.path.dirname(__file__), "..", "data", "prices.csv")
 
-        csv_headers = ["timestamp", "opening", "high", "low", "closing", "volume"]
-        with open(csv_file_path, "w", newline='') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=csv_headers)
-            writer.writeheader()
-
-            # looping
-            for date in dates:
-                daily_prices = tsd[date]
-                writer.writerow({
-                    "timestamp": date,
-                    "opening": daily_prices["1. open"],
-                    "high": daily_prices["2. high"],
-                    "low": daily_prices["3. low"],
-                    "closing": daily_prices["4. close"],
-                    "volume": daily_prices["5. volume"]
-                })
+        write_to_csv(csv_file_path)
 
         #print outputs
         print("-------------------------")
