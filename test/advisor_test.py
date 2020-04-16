@@ -1,23 +1,22 @@
 import os
+import pytest
 
-from app.robo_advisor import to_usd, transform_response, write_to_csv
+from app.robo_advisor import get_response, transform_response, write_to_csv, to_usd
 
-def test_to_usd():
-    price = 12.5
-    price_usd = to_usd(price)
-    assert price_usd == "$12.50"
 
-    # it should apply USD formatting
-    assert to_usd(12.50) == "$12.50"
 
-    # it should display two decimal places
-    assert to_usd(12.5) == "$12.50"
+CI_ENV = os.environ.get("CI") == "true" # expect default environment variable setting of "CI=true" on Travis CI, see: https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
 
-    # it should round to two places
-    assert to_usd(12.52345) == "$12.52"
+@pytest.mark.skipif(CI_ENV==True, reason="to avoid configuring credentials on, and issuing requests from, the CI server")
+def test_get_response():
+    symbol = "MSFT"
 
-    # it should display thousands separators
-    assert to_usd(1234567890) == "$1,234,567,890.00"
+    parsed_response = get_response(symbol)
+
+    assert isinstance(parsed_response, dict)
+    assert "Meta Data" in parsed_response.keys()
+    assert "Time Series (Daily)" in parsed_response.keys()
+    assert parsed_response["Meta Data"]["2. Symbol"] == symbol
 
 def test_transform_response():
     parsed_response = {
@@ -61,12 +60,7 @@ def test_transform_response():
 
     assert transform_response(parsed_response) == transformed_response
 
-def test_float_conversion():
-    assert float("102.6500") == 102.65
-    assert float("101.0924") == 101.0924 # interesting but helpful that the full value is retained
-
 def test_write_to_csv():
-
     # SETUP
 
     example_rows = [
@@ -93,3 +87,24 @@ def test_write_to_csv():
 
     assert result == True
     assert os.path.isfile(csv_filepath) == True
+
+def test_to_usd():
+    price = 12.5
+    price_usd = to_usd(price)
+    assert price_usd == "$12.50"
+
+    # it should apply USD formatting
+    assert to_usd(12.50) == "$12.50"
+
+    # it should display two decimal places
+    assert to_usd(12.5) == "$12.50"
+
+    # it should round to two places
+    assert to_usd(12.52345) == "$12.52"
+
+    # it should display thousands separators
+    assert to_usd(1234567890) == "$1,234,567,890.00"
+
+def test_float_conversion():
+    assert float("102.6500") == 102.65
+    assert float("101.0924") == 101.0924 # interesting but helpful that the full value is retained

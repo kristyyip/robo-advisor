@@ -15,26 +15,37 @@ from twilio.rest import Client
 import matplotlib.pyplot as plt
 import pandas as pd
 
-def to_usd(my_price):
+load_dotenv()
+
+API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
+
+def get_response(symbol):
     """
-    Converts a numeric value to usd-formatted string, for printing and display purposes.
-    
-    Source: https://github.com/prof-rossetti/intro-to-python/blog/master/notes/python/datatypes/numbers.
-    
-    Param: my_price (int or float) like 4000.444444
-    
-    Example: to_usd(4000.444444)
-    
-    Returns: $4,000.44
+    Issues a request and parses response
+
+    Param: symbol (str) like MSFT (should be a real stock ticker)
+
+    Example: get_response(MSFT)
+
+    Returns: parsed_response # dictionary representing the original JSON response
     """
-    return "${0:,.2f}".format(my_price)
+    request_url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
+    response = requests.get(request_url)
+    if "Error Message" in response.text:
+        print("Oops, couldn't find that symbol. The program will now exit, so please try again.")
+        exit()
+    parsed_response = json.loads(response.text)
+    return parsed_response
 
 def transform_response(parsed_response):
     """
     Creates a list of dictionaries of stock price information from retrieved data from JSON file
+
     Param: parsed_response (dict), which representing the original JSON response
         It should have keys: "Meta Data" and "Time Series Daily"
+
     Example: transform_response(parsed_response)
+
     Returns: rows
         # the following is an example if parsed_response contained dictionaries of the following information
         [
@@ -79,36 +90,35 @@ def write_to_csv(rows, csv_filepath):
     
     return True
 
+def to_usd(my_price):
+    """
+    Converts a numeric value to usd-formatted string, for printing and display purposes.
+    
+    Source: https://github.com/prof-rossetti/intro-to-python/blog/master/notes/python/datatypes/numbers.
+    
+    Param: my_price (int or float) like 4000.444444
+    
+    Example: to_usd(4000.444444)
+    
+    Returns: $4,000.44
+    """
+    return "${0:,.2f}".format(my_price)
+
 if __name__ == "__main__":
     
-    load_dotenv()
-
     #
     # INFO INPUTS
     #
 
-    api_key = os.environ.get("ALPHAVANTAGE_API_KEY")
     symbol = input("Please choose a valid stock symbol to evaluate (i.e. MSFT): ") # accept user input
     length = len(symbol) # to retrieve the length of the user's input
-    request_url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
 
     # validating user's input by checking to see if it is all letters or 1-5 characters
     if symbol.isdigit() or (length < 1 or length > 5): # source for letter/number check: https://pynative.com/python-check-user-input-is-number-or-string/
         print("Oh, expecting a properly-formed stock symbol like 'MSFT'. The program will now exit, so please try again.")
         exit()
     else:
-        response = requests.get(request_url)
-        # print(type(response)) # <class 'requests.models.Response'>
-        # print(response.status_code) # 200 
-        # print(response.text)
-
-        # handle response errors:
-        if "Error Message" in response.text:
-            print("Oops, couldn't find that symbol. The program will now exit, so please try again.")
-            exit()
-
-        # retrieve data from json file
-        parsed_response = json.loads(response.text)
+        parsed_response = get_response(symbol)
 
         last_refreshed = parsed_response["Meta Data"]["3. Last Refreshed"]
 
