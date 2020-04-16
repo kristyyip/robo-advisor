@@ -29,7 +29,46 @@ def to_usd(my_price):
     """
     return "${0:,.2f}".format(my_price)
 
+def transform_response(parsed_response):
+    """
+    Creates a list of dictionaries of stock price information from retrieved data from JSON file
+    Param: parsed_response (dict), which representing the original JSON response
+        It should have keys: "Meta Data" and "Time Series Daily"
+    Example: transform_response(parsed_response)
+    Returns: rows
+        # the following is an example if parsed_response contained dictionaries of the following information
+        [
+            {"timestamp": "2019-06-08", "open": "101.0924", "high": "101.9500", "low": "100.5400", "close": "101.6300", "volume": "22165128"},
+            {"timestamp": "2019-06-07", "open": "102.6500", "high": "102.6900", "low": "100.3800", "close": "100.8800", "volume": "28232197"},
+            {"timestamp": "2019-06-06", "open": "102.4800", "high": "102.6000", "low": "101.9000", "close": "102.4900", "volume": "21122917"},
+        ]
+    """
+    tsd = parsed_response["Time Series (Daily)"]
+
+    rows = []
+    for date, daily_prices in tsd.items(): # see: https://github.com/prof-rossetti/georgetown-opim-243-201901/blob/master/notes/python/datatypes/dictionaries.md
+        row = {
+            "timestamp": date,
+            "open": float(daily_prices["1. open"]),
+            "high": float(daily_prices["2. high"]),
+            "low": float(daily_prices["3. low"]),
+            "close": float(daily_prices["4. close"]),
+            "volume": int(daily_prices["5. volume"])
+        }
+        rows.append(row)
+
+    return rows
+
 def write_to_csv(rows, csv_filepath):
+    """
+    Writes information into a .csv file
+
+    Param: rows (list) and csv_filepath (str, should lead to a .csv file within the directory where the data will be written)
+
+    Example: write_to_csv(example_rows, csv_file_path)
+
+    Returns: True
+    """
     csv_headers = ["timestamp", "open", "high", "low", "close", "volume"]
 
     with open(csv_filepath, "w") as csv_file:
@@ -37,7 +76,7 @@ def write_to_csv(rows, csv_filepath):
         writer.writeheader() # uses fieldnames set above
         for row in rows:
             writer.writerow(row)
-
+    
     return True
 
 if __name__ == "__main__":
@@ -73,18 +112,19 @@ if __name__ == "__main__":
 
         last_refreshed = parsed_response["Meta Data"]["3. Last Refreshed"]
 
-        tsd = parsed_response["Time Series (Daily)"]
-        dates = list(tsd.keys())
-        latest_day = dates[0]
-        latest_close = parsed_response["Time Series (Daily)"][latest_day]["4. close"]
+        rows = transform_response(parsed_response)
 
+        latest_day = rows[0]["timestamp"]
+        latest_close = rows[0]["close"]
+
+        
         # maximum of all high prices
         high_prices = []
         low_prices = []
 
-        for date in dates:
-            high_price = tsd[date]["2. high"]
-            low_price = tsd[date]["3. low"]
+        for row in rows:
+            high_price = row["high"]
+            low_price = row["low"]
             high_prices.append(float(high_price))
             low_prices.append(float(low_price))
 
@@ -94,8 +134,8 @@ if __name__ == "__main__":
         # sending alerts 
         ## via email 
         current_datetime = datetime.now() # source: tecadmin.net/get-current-date-time-python/
-        second_latest_close = parsed_response["Time Series (Daily)"][dates[1]]["4. close"]
-        second_latest_day = list(tsd.keys())[1]
+        second_latest_close = rows[1]["close"]
+        second_latest_day = rows[1]["timestamp"]
         timestamp = current_datetime.strftime("%B %d, %Y at %I:%M %p")
 
         while True:
@@ -249,7 +289,7 @@ if __name__ == "__main__":
         ## creating a csv file of the stock prices
         csv_file_path = os.path.join(os.path.dirname(__file__), "..", "data", "prices.csv")
 
-        write_to_csv(csv_file_path)
+        write_to_csv(rows, csv_file_path)
 
         #print outputs
         print("-------------------------")
@@ -292,10 +332,10 @@ if __name__ == "__main__":
         ## plot the price -- making subplots source: https://pythonprogramming.net/matplotlib-tutorial-part-5-subplots-multiple-plots-figure/
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
 
-        ax1.plot(stock_prices['opening'], 'r')
+        ax1.plot(stock_prices['open'], 'r')
         ax2.plot(stock_prices['high'], 'b')
         ax3.plot(stock_prices['low'], 'g')
-        ax4.plot(stock_prices['closing'], 'k')
+        ax4.plot(stock_prices['close'], 'k')
 
         ## setting subplot labels
         ax1.set_title(f'Opening Stock Prices Over Time for {symbol}')
